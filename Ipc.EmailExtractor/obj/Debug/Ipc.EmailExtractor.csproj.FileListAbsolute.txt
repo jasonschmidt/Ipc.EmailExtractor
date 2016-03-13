@@ -1,1 +1,11 @@
 E:\Jason Schmidt\Source\Ipc.EmailExtractor\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\Ipc.EmailExtractor.exe.config
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\Ipc.EmailExtractor.exe.config
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\Ipc.EmailExtractor.exe
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\Ipc.EmailExtractor.pdb
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\CsvHelper.dll
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\ImapX.dll
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\CsvHelper.pdb
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\bin\Debug\CsvHelper.xml
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\obj\Debug\Ipc.EmailExtractor.csprojResolveAssemblyReference.cache
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\obj\Debug\Ipc.EmailExtractor.exe
+C:\Users\jschmidt\Documents\Workspace\Ipc.EmailExtractor\Ipc.EmailExtractor\obj\Debug\Ipc.EmailExtractor.pdb

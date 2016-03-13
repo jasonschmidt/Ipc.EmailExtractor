@@ -54,7 +54,7 @@ namespace Ipc.EmailExtractor
                                 if (emailMessage != null)
                                 {
                                     var car = emailMessage.Car;
-                                    Console.WriteLine("\n------ Found car ----- \n{0}\n{1}\n{2}\n{3}\n{4}\n", car.Description, car.VIN, car.Mileage, car.Color, car.AutoniqLink);
+                                    Console.WriteLine("\n------ Found car ----- \n{0}\n{1}\n{2}\n{3}\n{4}\n", car.Make, car.VIN, car.Mileage, car.Color, car.AutoniqLink);
                                     emails.Add(emailMessage);
                                 }
                             }
@@ -84,6 +84,22 @@ namespace Ipc.EmailExtractor
                                     foreach (var emailMessage in emails)
                                     {
                                         if (emailMessage.EmailType == EmailType.Sold)
+                                        {
+                                            csv.WriteRecord<Car>(emailMessage.Car);
+                                        }
+                                    }
+                                }
+                            }
+
+                            using (var writer = new StreamWriter("cars.backinstock.csv"))
+                            {
+                                using (var csv = new CsvWriter(writer))
+                                {
+                                    csv.Configuration.Encoding = Encoding.UTF8;
+                                    csv.WriteHeader(typeof(Car));
+                                    foreach (var emailMessage in emails)
+                                    {
+                                        if (emailMessage.EmailType == EmailType.BackInStock)
                                         {
                                             csv.WriteRecord<Car>(emailMessage.Car);
                                         }
@@ -122,30 +138,35 @@ namespace Ipc.EmailExtractor
             var car = new Car();
             if (message.Body.HasText) {
                 carMatches  = Regex.Match(message.Body.Text, "Vehicle:(.*?\n).*?\nVIN:(.*?\n)Mileage:(.*?\n)Color:(.*?\n)", RegexOptions.IgnoreCase);
-                car.Description = carMatches.Groups[1].Value.Trim();
+            //    car.Description = carMatches.Groups[1].Value.Trim();
                 
             }
             else
             {
-                carMatches = Regex.Match(message.Body.Html, @"<tr>(?:.?\n)<td(?:.*?)>Vehicle:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)<tr>(?:.?\n)<td(?:.*?)>VIN:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)<tr>(?:.?\n)<td(?:.*?)>Mileage:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)<tr>(?:.?\n)<td(?:.*?)>Color:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)", RegexOptions.IgnoreCase);
+                //carMatches = Regex.Match(message.Body.Html, @"<tr>(?:.?\n)<td(?:.*?)>Vehicle:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)<tr>(?:.?\n)<td(?:.*?)>VIN:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)<tr>(?:.?\n)<td(?:.*?)>Mileage:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)<tr>(?:.?\n)<td(?:.*?)>Color:<\/td>(?:.?\n)<td>(.*?)<\/td>(?:.?\n)<\/tr>(?:.?\n)", RegexOptions.IgnoreCase);
+                carMatches = Regex.Match(message.Body.Html,
+                    @"<tr>\s*<td(?:.*?)Vehicle:<\/td>\s*<td>\s*(.*?)<\/td>\s*<\/tr>\s*<tr>\s*<td(?:.*?)VIN:<\/td>\s*<td>\s*(.*?)<\/td>\s*<\/tr>\s*<tr>\s*<td(?:.*?)Mileage:<\/td>\s*<td>\s*(.*?)<\/td>\s*<\/tr>\s*<tr>\s*<td(?:.*?)Color:<\/td>\s*<td>\s*(.*?)<\/td>\s*<\/tr>",
+                    RegexOptions.IgnoreCase);
+                
                 var description = carMatches.Groups[1].Value.Trim();
                 if (description.Contains("<a"))
                 {
                     var linkMatches = Regex.Match(description, "<a href=\"(.*?)\">(.*?)<\\/a>", RegexOptions.IgnoreCase);
                     if (linkMatches.Groups.Count == 3)
                     {
-                        car.Description = WebUtility.HtmlDecode(linkMatches.Groups[2].Value.Trim());
+                        ParseDescription(car, linkMatches.Groups[2].Value.Trim());
                         car.AutoniqLink = linkMatches.Groups[1].Value.Trim();
                     }
                     else
                     {
-                        car.Description = carMatches.Groups[1].Value.Trim();    // no go, just do the default
+                        ParseDescription(car, carMatches.Groups[1].Value.Trim());    // no go, just do the default
                     }
                 }
                 else
                 {
-                    car.Description = carMatches.Groups[1].Value.Trim();
+                    ParseDescription(car, carMatches.Groups[1].Value.Trim());
                 }
+                
 
                 // determine email type
                 var firstLineRegex = Regex.Match(message.Body.Html, "<div style=\"(?:.*\\n)(.*?)(?:.?\\n)<\\/div>");
@@ -171,8 +192,7 @@ namespace Ipc.EmailExtractor
             {
                 return null; 
             }
-                       
-            
+
             car.VIN = carMatches.Groups[2].Value.Trim();
             car.Mileage = Convert.ToDouble(carMatches.Groups[3].Value.Trim());
             car.Color = carMatches.Groups[4].Value.Trim();
@@ -184,6 +204,18 @@ namespace Ipc.EmailExtractor
             return emailMessage;
             
            
+        }
+
+        protected static void ParseDescription(Car car, string description)
+        {
+            description = WebUtility.HtmlDecode(description);
+            var descriptionMatches = Regex.Match(description, @"(\d*)\s(\w+)\s(.*)", RegexOptions.IgnoreCase);
+            if (descriptionMatches.Groups.Count == 4)
+            {
+                car.Year = descriptionMatches.Groups[1].Value.Trim();
+                car.Make = descriptionMatches.Groups[2].Value.Trim();
+                car.Model = descriptionMatches.Groups[3].Value.Trim();
+            }
         }
     }
 }
