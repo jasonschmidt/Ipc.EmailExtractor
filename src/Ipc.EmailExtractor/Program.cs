@@ -7,6 +7,7 @@ using System.IO;
 using CsvHelper;
 using System.Text;
 using System.Net;
+using System.Globalization;
 
 namespace Ipc.EmailExtractor
 {
@@ -15,10 +16,18 @@ namespace Ipc.EmailExtractor
         static void Main(string[] args)
         {
             var cmdline = new Arguments(args);
-
+                       
             var emailAddress = cmdline["emailAddress"] ?? ConfigurationManager.AppSettings["ipc.username"].ToString();
             var password = cmdline["password"] ?? ConfigurationManager.AppSettings["ipc.password"].ToString();
-            
+
+            Console.WriteLine("Using email address: " + emailAddress);
+            if (string.IsNullOrEmpty(password)) {
+                Console.WriteLine("Please enter your password:");
+                password = Console.ReadLine();
+                Console.WriteLine("");
+            }
+
+
             ReadEmail(emailAddress, password);
         }
 
@@ -26,7 +35,8 @@ namespace Ipc.EmailExtractor
         {
             var mailServer = ConfigurationManager.AppSettings["ipc.mailserver"].ToString();
             var from = ConfigurationManager.AppSettings["ipc.from"].ToString();
-            var startDate = ConfigurationManager.AppSettings["ipc.startdate"].ToString();
+            var startDate = Convert.ToDateTime(ConfigurationManager.AppSettings["ipc.startdate"].ToString());
+            var lastUpdated = ReadTimestampMarker(startDate);
 
             using (ImapClient imap = new ImapClient(mailServer, true))
             {
@@ -44,7 +54,7 @@ namespace Ipc.EmailExtractor
                         {
                             Console.WriteLine("Connected to IMAP server.");
                             Console.WriteLine("Reading emails...");
-                            var messages = imap.Folders.Inbox.SubFolders["Autoniq"].Search(string.Format("SINCE {0} HEADER FROM \"{1}\"", startDate, from), ImapX.Enums.MessageFetchMode.Basic);
+                            var messages = imap.Folders.Inbox.SubFolders["Autoniq"].Search(string.Format("SINCE {0} HEADER FROM \"{1}\"", lastUpdated.ToString("dd-MMM-yyyy"), from), ImapX.Enums.MessageFetchMode.Basic);
                             Console.WriteLine("Found {0} emails from {1}", messages.Length, from);
 
                             var emails = new List<EmailMessage>();
@@ -59,53 +69,11 @@ namespace Ipc.EmailExtractor
                                 }
                             }
 
-                            using (var writer = new StreamWriter("cars.bought.csv"))
-                            {
-                                using (var csv = new CsvWriter(writer))
-                                {
-                                    csv.Configuration.Encoding = Encoding.UTF8;
-                                    csv.WriteHeader(typeof(Car));
-                                    foreach (var emailMessage in emails)
-                                    {
-                                        if (emailMessage.EmailType == EmailType.Bought)
-                                        {
-                                            csv.WriteRecord<Car>(emailMessage.Car);
-                                        }
-                                    }
-                                }
-                            }
+                            WriteCsv(EmailType.Bought, emails);
+                            WriteCsv(EmailType.Sold, emails);
+                            WriteCsv(EmailType.BackInStock, emails);
 
-                            using (var writer = new StreamWriter("cars.sold.csv"))
-                            {
-                                using (var csv = new CsvWriter(writer))
-                                {
-                                    csv.Configuration.Encoding = Encoding.UTF8;
-                                    csv.WriteHeader(typeof(Car));
-                                    foreach (var emailMessage in emails)
-                                    {
-                                        if (emailMessage.EmailType == EmailType.Sold)
-                                        {
-                                            csv.WriteRecord<Car>(emailMessage.Car);
-                                        }
-                                    }
-                                }
-                            }
-
-                            using (var writer = new StreamWriter("cars.backinstock.csv"))
-                            {
-                                using (var csv = new CsvWriter(writer))
-                                {
-                                    csv.Configuration.Encoding = Encoding.UTF8;
-                                    csv.WriteHeader(typeof(Car));
-                                    foreach (var emailMessage in emails)
-                                    {
-                                        if (emailMessage.EmailType == EmailType.BackInStock)
-                                        {
-                                            csv.WriteRecord<Car>(emailMessage.Car);
-                                        }
-                                    }
-                                }
-                            }
+                            WriteTimestampMarker();
                         }
                         catch (Exception ex)
                         {
@@ -122,10 +90,60 @@ namespace Ipc.EmailExtractor
                     Console.WriteLine("Error while connecting to IMAP server. ");
                 }
 
+                
                 Console.WriteLine("Process completed.");
                 Console.WriteLine("Press any key to close.");
                 Console.ReadLine();
             }
+        }
+
+        static void WriteCsv(EmailType emailType, List<EmailMessage> emails)
+        {
+            var fileName = "cars." + emailType.ToString().ToLower() + ".csv";
+            var fileExists = File.Exists(fileName);
+            using (var writer = new StreamWriter(fileName, true))
+            {
+                using (var csv = new CsvWriter(writer))
+                {
+                    csv.Configuration.Encoding = Encoding.UTF8;
+                    if (!fileExists)
+                    {
+                        csv.WriteHeader(typeof(Car));
+                    }
+                    foreach (var emailMessage in emails)
+                    {
+                        if (emailMessage.EmailType == emailType)
+                        {
+                            csv.WriteRecord<Car>(emailMessage.Car);
+                        }
+                    }
+                }
+            }
+        }
+
+        static void WriteTimestampMarker(DateTime? startDate = null)
+        {
+            var dateToUse = startDate ?? DateTime.UtcNow;
+            File.WriteAllText("LastUpdated.txt", dateToUse.ToString("MM/dd/yyyy HH:mm:ss"));
+        }
+
+        static DateTime ReadTimestampMarker(DateTime startDate)
+        {
+            if (File.Exists("LastUpdated.txt") == false)
+            {
+                WriteTimestampMarker(startDate);
+            }
+
+            var lastUpdated = File.ReadAllText("LastUpdated.txt");
+            DateTime dt;
+            if (DateTime.TryParseExact(lastUpdated, "MM/dd/yyyy HH:mm:ss", CultureInfo.GetCultureInfo("en-US"),
+                                       DateTimeStyles.None, out dt))
+            {
+                return dt;
+            }
+
+            throw new ArgumentOutOfRangeException("Unable to load date from LastUpdated.txt");
+
         }
 
         static EmailMessage ParseEmailForCar(Message message)
